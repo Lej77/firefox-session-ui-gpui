@@ -1,0 +1,2 @@
+https://github.com/longbridge/gpui-component/blob/a2c55dda46c6423f614564a373303e5c524e336b/docs/public/logo-dark.svg
+https://github.com/longbridge/gpui-component/blob/a2c55dda46c6423f614564a373303e5c524e336b/docs/public/logo.svg
