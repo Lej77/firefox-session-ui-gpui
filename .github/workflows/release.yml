@@ -58,27 +58,27 @@ jobs:
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Post Build | Move and rename binary
+      - name: Post Build | Move binary
         run: |
           mkdir uploads
-          mv target/${{ matrix.target }}/release/${{ env.binary_name }}${{ matrix.ext }} uploads/${{ env.binary_name }}-${{ matrix.target }}${{ matrix.ext }}
+          mv target/${{ matrix.target }}/release/${{ env.binary_name }}${{ matrix.ext }} uploads/${{ env.binary_name }}${{ matrix.ext }}
 
       - name: Post Build | Prepare artifacts [zip]
         if: matrix.platform == 'windows-latest'
         working-directory: uploads
         run: |
-          7z a ${{ env.binary_name }}-${{ matrix.target }}.zip ${{ env.binary_name }}-${{ matrix.target }}${{ matrix.ext }}
+          7z a ${{ env.binary_name }}-${{ matrix.target }}.zip ${{ env.binary_name }}${{ matrix.ext }}
 
       - name: Post Build | Prepare artifacts [tar.gz]
         if: matrix.platform != 'windows-latest'
         working-directory: uploads
         run: |
-          tar --create --gzip --verbose --file  ${{ env.binary_name }}-${{ matrix.target }}.tar.gz ${{ env.binary_name }}-${{ matrix.target }}${{ matrix.ext }}
+          tar --create --gzip --verbose --file  ${{ env.binary_name }}-${{ matrix.target }}.tar.gz ${{ env.binary_name }}${{ matrix.ext }}
 
       - name: Post Build | Remove binary (now inside compressed artifact)
         working-directory: uploads
         run: |
-          rm ${{ env.binary_name }}-${{ matrix.target }}${{ matrix.ext }}
+          rm ${{ env.binary_name }}${{ matrix.ext }}
 
       - name: Post Build | Display structure of uploads folder
         run: ls uploads
