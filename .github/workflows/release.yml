@@ -27,7 +27,7 @@ jobs:
           - platform: 'macos-latest' # for Intel based macs.
             target: 'x86_64-apple-darwin'
 
-          - platform: 'ubuntu-latest'
+          - platform: 'ubuntu-24.04'
             target: 'x86_64-unknown-linux-gnu'
 
           - platform: 'windows-latest'
@@ -42,6 +42,17 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Install dependencies
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt update
+          # Test on Ubuntu 24.04
+          sudo apt install -y \
+            gcc g++ clang libfontconfig-dev libwayland-dev \
+            libwebkit2gtk-4.1-dev libxkbcommon-x11-dev libx11-xcb-dev \
+            libssl-dev libzstd-dev \
+            vulkan-validationlayers libvulkan1
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
