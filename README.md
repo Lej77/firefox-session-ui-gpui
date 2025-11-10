@@ -54,7 +54,7 @@ You can uninstall uisng:
 
 ## License
 
-This project is released under [Apache License (Version 2.0)](./LICENSE-APACHE).
+This project is released under [Apache License (Version 2.0)](./LICENSE).
 
 ### Contribution
 
