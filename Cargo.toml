@@ -19,10 +19,12 @@ real_data = [
 # Support more html to PDF converters (increases binary size):
 html_to_pdf_all = ["firefox_session_data?/html_to_pdf_all"]
 
+webview = ["gpui-component/webview", "dep:wry"] # TODO: maybe preview HTML using this
+
 [dependencies]
 gpui = "0.2.2" # GUI Core
-gpui-component = { version = "0.3.0", features = ["webview"] } # GUI Components
-wry = { version = "0.53.3", package = "lb-wry" } # Web view
+gpui-component = { version = "0.3.0" } # GUI Components
+wry = { version = "0.53.3", package = "lb-wry", optional = true } # Web view
 rust-embed = { version = "8", features = ["interpolate-folder-path"] } # Include icon assets
 anyhow = "1"
 
