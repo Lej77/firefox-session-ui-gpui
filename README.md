@@ -9,9 +9,39 @@ Note that this program simply makes use of the code exposed by the CLI tool at <
 
 ## Usage
 
-- Build a release version locally using `cargo build --release` then run `target/release/firefox-session-ui-gpui.exe`.
-- Or download a precompiled executable from the [latest GitHub release](https://github.com/Lej77/firefox-session-ui-gpui/releases).
-- When developing use: `cargo run`
+- Download a precompiled executable from the [latest GitHub release](https://github.com/Lej77/firefox-session-ui-gpui/releases).
+- Or clone the git repository and:
+    - Build a release version locally using `cargo build --release` then run `target/release/firefox-session-ui-gpui.exe`.
+    - When developing use: `cargo run`
+
+### `cargo install`
+
+You can use `cargo install` to easily build from source without manually cloning the repo:
+
+```bash
+cargo install --git https://github.com/Lej77/firefox-session-ui-gpui.git
+```
+
+You can use [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall) to easily download the precompiled executables from a GitHub release:
+
+```bash
+cargo binstall --git https://github.com/Lej77/firefox-session-ui-gpui.git firefox-session-ui-gpui
+```
+
+After installing you can update the program using [nabijaczleweli/cargo-update: A cargo subcommand for checking and applying updates to installed executables](https://github.com/nabijaczleweli/cargo-update):
+
+```bash
+cargo install-update --git firefox-session-ui-gpui
+
+# OR update all installed programs:
+cargo install-update --git --all
+```
+
+You can uninstall uisng:
+
+```bash
+ cargo uninstall firefox-session-ui-gpui
+```
 
 ## References
 
