@@ -23,9 +23,9 @@ webview = ["gpui-component/webview", "dep:wry"] # TODO: maybe preview HTML using
 
 [dependencies]
 gpui = "0.2.2" # GUI Core
-gpui-component = { version = "0.3.0" } # GUI Components
+gpui-component = "0.5.1" # GUI Components
+gpui-component-assets = "0.5.1" # https://longbridge.github.io/gpui-component/docs/assets
 wry = { version = "0.53.3", package = "lb-wry", optional = true } # Web view
-rust-embed = { version = "8", features = ["interpolate-folder-path"] } # Include icon assets
 anyhow = "1"
 
 rfd = "0.15.0" # File prompts

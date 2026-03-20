@@ -5,50 +5,23 @@ mod host;
 
 use crate::elm::{MsgSender, Update};
 use gpui::{
-    div, prelude::*, px, AlignItems, AnyView, App, AppContext, Application, AssetSource,
-    ClipboardItem, Entity, Pixels, SharedString, Size, StyleRefinement, WeakEntity, Window,
-    WindowOptions,
+    div, prelude::*, px, AlignItems, AnyView, App, AppContext, Application, ClipboardItem, Entity,
+    Pixels, SharedString, Size, StyleRefinement, WeakEntity, Window, WindowOptions,
 };
 use gpui_component::{
     button::Button,
     checkbox::Checkbox,
-    dropdown::{Dropdown, DropdownItem, DropdownState},
-    group_box::GroupBox,
+    group_box::{GroupBox, GroupBoxVariants},
     h_flex,
-    input::{InputState, TextInput},
+    input::{Input, InputState},
     label::Label,
-    list::{List, ListDelegate, ListItem},
+    list::{ListDelegate, ListItem, ListState},
+    select::{Select, SelectItem, SelectState},
     text::TextView,
     tooltip::Tooltip,
-    v_flex, ContextModal, Icon, IconName, IndexPath, Root, StyledExt,
+    v_flex, Icon, IconName, IndexPath, Root, StyledExt, WindowExt,
 };
-use rust_embed::RustEmbed;
-use std::borrow::Cow;
 use std::path::PathBuf;
-
-/// An asset source that loads assets from the `./assets` folder.
-#[derive(RustEmbed)]
-#[folder = "./assets"]
-#[include = "icons/**/*.svg"]
-pub struct Assets;
-
-impl AssetSource for Assets {
-    fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
-        if path.is_empty() {
-            return Ok(None);
-        }
-
-        Self::get(path)
-            .map(|f| Some(f.data))
-            .ok_or_else(|| anyhow::anyhow!("could not find asset at path \"{path}\""))
-    }
-
-    fn list(&self, path: &str) -> anyhow::Result<Vec<SharedString>> {
-        Ok(Self::iter()
-            .filter_map(|p| p.starts_with(path).then(|| p.into()))
-            .collect())
-    }
-}
 
 struct WizardList {
     parent: WeakEntity<FirefoxSessionUtility>,
@@ -63,10 +36,10 @@ impl ListDelegate for WizardList {
     }
 
     fn render_item(
-        &self,
+        &mut self,
         ix: gpui_component::IndexPath,
         _window: &mut Window,
-        _cx: &mut Context<gpui_component::List<Self>>,
+        _cx: &mut Context<ListState<Self>>,
     ) -> Option<Self::Item> {
         self.found_profiles.get(ix.row).map(|item| {
             ListItem::new(ix)
@@ -79,7 +52,7 @@ impl ListDelegate for WizardList {
         &mut self,
         ix: Option<gpui_component::IndexPath>,
         window: &mut Window,
-        cx: &mut Context<gpui_component::List<Self>>,
+        cx: &mut Context<ListState<Self>>,
     ) {
         self.selected_index = ix;
         cx.notify();
@@ -99,12 +72,12 @@ impl ListDelegate for WizardList {
                 parent.update(window, cx, Command::LoadNewInputData);
             })
         }
-        window.close_modal(cx);
+        window.close_dialog(cx);
     }
 }
 
 struct Wizard {
-    list: Entity<List<WizardList>>,
+    list: Entity<ListState<WizardList>>,
 }
 impl Wizard {
     fn new(
@@ -113,7 +86,7 @@ impl Wizard {
         parent: WeakEntity<FirefoxSessionUtility>,
     ) -> Self {
         let list = cx.new(|cx| {
-            List::new(
+            ListState::new(
                 WizardList {
                     parent,
                     found_profiles: Vec::new(),
@@ -122,7 +95,6 @@ impl Wizard {
                 window,
                 cx,
             )
-            .no_query()
         });
         Wizard { list }
     }
@@ -133,8 +105,9 @@ impl Wizard {
         list.update(cx, |view, _cx| {
             view.delegate_mut().found_profiles = host::FirefoxProfileInfo::all_profiles();
         });
-        window.open_modal(cx, move |modal, _window, _cx| {
-            modal
+        // https://longbridge.github.io/gpui-component/docs/components/dialog
+        window.open_dialog(cx, move |dialog, _window, _cx| {
+            dialog
                 .my_10()
                 .title("Select Firefox Session Data")
                 .child(
@@ -144,7 +117,7 @@ impl Wizard {
                         .child(Button::new("cancel").mt_8().label("Cancel").on_click({
                             move |_, window, cx| {
                                 eprintln!("Modal closed via button");
-                                window.close_modal(cx);
+                                window.close_dialog(cx);
                             }
                         })),
                 )
@@ -158,7 +131,7 @@ impl Wizard {
 /// A view of an output format.
 #[derive(Clone, Copy, gpui::IntoElement)]
 pub struct FormatInfoValue(pub host::FormatInfo);
-impl DropdownItem for FormatInfoValue {
+impl SelectItem for FormatInfoValue {
     type Value = host::FormatInfo;
 
     fn title(&self) -> SharedString {
@@ -257,10 +230,10 @@ impl ListDelegate for TabGroupList {
     }
 
     fn render_item(
-        &self,
+        &mut self,
         ix: IndexPath,
         _window: &mut Window,
-        _cx: &mut Context<'_, List<Self>>,
+        _cx: &mut Context<'_, ListState<Self>>,
     ) -> Option<Self::Item> {
         let (groups, selected_indexes) = match ix.section {
             0 => (
@@ -286,10 +259,10 @@ impl ListDelegate for TabGroupList {
     }
 
     fn render_section_header(
-        &self,
+        &mut self,
         section: usize,
         _window: &mut Window,
-        _cx: &mut Context<'_, List<Self>>,
+        _cx: &mut Context<'_, ListState<Self>>,
     ) -> Option<impl IntoElement> {
         let title = match section {
             0 => "Open Windows",
@@ -310,10 +283,10 @@ impl ListDelegate for TabGroupList {
     }
 
     fn render_section_footer(
-        &self,
+        &mut self,
         _section: usize,
         _window: &mut Window,
-        _cx: &mut Context<'_, List<Self>>,
+        _cx: &mut Context<'_, ListState<Self>>,
     ) -> Option<impl IntoElement> {
         Some(div().px_2().py_1().child(""))
     }
@@ -322,12 +295,17 @@ impl ListDelegate for TabGroupList {
         &mut self,
         ix: Option<IndexPath>,
         _window: &mut Window,
-        _cx: &mut Context<List<Self>>,
+        _cx: &mut Context<ListState<Self>>,
     ) {
         self.selected_item = ix;
     }
 
-    fn confirm(&mut self, _secondary: bool, window: &mut Window, cx: &mut Context<List<Self>>) {
+    fn confirm(
+        &mut self,
+        _secondary: bool,
+        window: &mut Window,
+        cx: &mut Context<ListState<Self>>,
+    ) {
         let Some(ix) = self.selected_item else { return };
         let selected_indexes = match ix.section {
             0 => &self.selected_tab_groups.open_group_indexes,
@@ -546,11 +524,11 @@ struct FirefoxSessionUtility {
     loaded_input: Entity<InputState>,
     loaded_input_data: Option<host::FileInfo>,
     preview: Entity<InputState>,
-    tab_group_list: Entity<List<TabGroupList>>,
+    tab_group_list: Entity<ListState<TabGroupList>>,
     output_path: Entity<InputState>,
     create_folder: bool,
     overwrite: bool,
-    output_format: Entity<DropdownState<Vec<FormatInfoValue>>>,
+    output_format: Entity<SelectState<Vec<FormatInfoValue>>>,
     status: Entity<InputState>,
 }
 impl FirefoxSessionUtility {
@@ -562,13 +540,15 @@ impl FirefoxSessionUtility {
             |cx| Wizard::new(window, cx, parent)
         });
         let preview = cx.new(|cx: &mut Context<'_, _>| {
-            InputState::new(window, cx).multi_line().searchable(true)
+            InputState::new(window, cx)
+                .multi_line(true)
+                .searchable(true)
         });
 
         let tab_group_list = cx.new({
             let parent = cx.weak_entity();
             |cx| {
-                List::new(
+                ListState::new(
                     TabGroupList {
                         parent,
                         tab_groups: Default::default(),
@@ -578,7 +558,6 @@ impl FirefoxSessionUtility {
                     window,
                     cx,
                 )
-                .no_query()
             }
         });
 
@@ -598,7 +577,7 @@ impl FirefoxSessionUtility {
         });
 
         let output_format = cx.new(|cx: &mut Context<'_, _>| {
-            DropdownState::new(
+            SelectState::new(
                 host::FormatInfo::all()
                     .iter()
                     .copied()
@@ -735,7 +714,7 @@ impl FirefoxSessionUtility {
 }
 impl Render for FirefoxSessionUtility {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
-        let modal_layer = Root::render_modal_layer(window, cx);
+        let modal_layer = Root::render_dialog_layer(window, cx);
 
         h_flex()
             .size_full()
@@ -763,7 +742,7 @@ impl Render for FirefoxSessionUtility {
                         h_flex()
                             .my_2()
                             .child("Path to sessionstore file:")
-                            .child(TextInput::new(&self.new_input).ml_2())
+                            .child(Input::new(&self.new_input).ml_2())
                             .child(
                                 Button::new("input-wizard")
                                     .on_click({
@@ -786,7 +765,7 @@ impl Render for FirefoxSessionUtility {
                         h_flex()
                             .my_2()
                             .child("Current data was loaded from:")
-                            .child(TextInput::new(&self.loaded_input).ml_2().disabled(true))
+                            .child(Input::new(&self.loaded_input).ml_2().disabled(true))
                             .child(
                                 Button::new("input-load")
                                     .on_click(cx.listener(|view, _, window, cx| {
@@ -798,18 +777,13 @@ impl Render for FirefoxSessionUtility {
                     )
                     // Preview:
                     .child(Label::new("Tabs as links:").my_2())
-                    .child(
-                        TextInput::new(&self.preview)
-                            .flex_grow()
-                            .mb_2()
-                            .disabled(true),
-                    )
+                    .child(Input::new(&self.preview).flex_grow().mb_2().disabled(true))
                     // Output options:
                     .child(
                         h_flex()
                             .my_2()
                             .child("File path to write links to:")
-                            .child(TextInput::new(&self.output_path).ml_2())
+                            .child(Input::new(&self.output_path).ml_2())
                             .child(
                                 Button::new("output-browse")
                                     .on_click(Self::output_browse_event_listener(window, cx))
@@ -877,7 +851,7 @@ impl Render for FirefoxSessionUtility {
                                                 .child(
                                                     div()
                                                         .child(
-                                                            Dropdown::new(&self.output_format)
+                                                            Select::new(&self.output_format)
                                                                 .min_w(px(200.)),
                                                         )
                                                         .id("select-output-format")
@@ -907,7 +881,7 @@ impl Render for FirefoxSessionUtility {
                             .my_2()
                             .flex_row()
                             .child("Status:")
-                            .child(TextInput::new(&self.status).ml_2().disabled(true)),
+                            .child(Input::new(&self.status).ml_2().disabled(true)),
                     ),
             )
             // Render the modal layer on top of the app content
@@ -919,30 +893,32 @@ fn main() {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
     let _rt_guard = rt.enter();
 
-    Application::new().with_assets(Assets).run(|cx: &mut App| {
-        cx.new(|cx: &mut Context<'_, ()>| {
-            // This must be called before using any GPUI Component features.
-            gpui_component::init(cx);
+    Application::new()
+        .with_assets(gpui_component_assets::Assets)
+        .run(|cx: &mut App| {
+            cx.new(|cx: &mut Context<'_, ()>| {
+                // This must be called before using any GPUI Component features.
+                gpui_component::init(cx);
 
-            cx.open_window(
-                WindowOptions {
-                    titlebar: Some(gpui::TitlebarOptions {
-                        title: Some("Firefox Session Data Utility".into()),
+                cx.open_window(
+                    WindowOptions {
+                        titlebar: Some(gpui::TitlebarOptions {
+                            title: Some("Firefox Session Data Utility".into()),
+                            ..Default::default()
+                        }),
+                        window_min_size: Some(Size::new(px(800.), px(600.))),
                         ..Default::default()
-                    }),
-                    window_min_size: Some(Size::new(px(800.), px(600.))),
-                    ..Default::default()
-                },
-                |window: &mut Window, cx: &mut App| {
-                    // Uncomment next line to test a specific theme instead of using the system theme:
-                    // gpui_component::Theme::change(gpui_component::ThemeMode::Light, Some(window), cx);
+                    },
+                    |window: &mut Window, cx: &mut App| {
+                        // Uncomment next line to test a specific theme instead of using the system theme:
+                        // gpui_component::Theme::change(gpui_component::ThemeMode::Light, Some(window), cx);
 
-                    let main_ui =
-                        cx.new(|cx: &mut Context<'_, _>| FirefoxSessionUtility::new(window, cx));
-                    cx.new(|cx| Root::new(main_ui.into(), window, cx))
-                },
-            )
-            .expect("Failed to build and open window");
+                        let main_ui = cx
+                            .new(|cx: &mut Context<'_, _>| FirefoxSessionUtility::new(window, cx));
+                        cx.new(|cx| Root::new(main_ui, window, cx))
+                    },
+                )
+                .expect("Failed to build and open window");
+            });
         });
-    });
 }
