@@ -14,7 +14,7 @@ Note that this program simply makes use of the code exposed by the CLI tool at <
   - Build a release version locally using `cargo build --release` then run `target/release/firefox-session-ui-gpui.exe`.
   - When developing use: `cargo run`
 - Build as website using [trunk](https://trunkrs.dev/) (`cd trunk` then `trunk serve` or `trunk build --release`).
-  - You can try the current web demo at: <https://lej77.github.io/firefox-session-ui-egui/>
+  - You can try the current web demo at: <https://lej77.github.io/firefox-session-ui-gpui/>
 
 ### `cargo install`
 
