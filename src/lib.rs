@@ -1,10 +1,19 @@
+#[cfg(target_family = "wasm")]
+extern crate gpui_component_assets_git as gpui_component_assets;
+#[cfg(target_family = "wasm")]
+extern crate gpui_component_git as gpui_component;
+#[cfg(target_family = "wasm")]
+extern crate gpui_git as gpui;
+#[cfg(target_family = "wasm")]
+extern crate gpui_platform_git as gpui_platform;
+
 mod elm;
 mod host;
 
 use crate::elm::{MsgSender, Update};
 use gpui::{
-    div, prelude::*, px, AlignItems, AnyView, App, AppContext, Application, ClipboardItem, Entity,
-    Pixels, SharedString, Size, StyleRefinement, WeakEntity, Window, WindowOptions,
+    div, prelude::*, px, AlignItems, AnyView, App, AppContext, ClipboardItem, Entity, Pixels,
+    SharedString, StyleRefinement, WeakEntity, Window, WindowOptions,
 };
 use gpui_component::{
     button::Button,
@@ -20,6 +29,8 @@ use gpui_component::{
     v_flex, Icon, IconName, IndexPath, Root, StyledExt, WindowExt,
 };
 use std::path::PathBuf;
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
 
 struct WizardList {
     parent: WeakEntity<FirefoxSessionUtility>,
@@ -156,8 +167,15 @@ impl gpui::RenderOnce for FormatInfoValue {
             .tooltip({
                 let info = self.0;
                 move |window, cx| {
-                    Tooltip::element(move |window, cx| {
-                        TextView::markdown(info.as_str(), info.to_string(), window, cx)
+                    Tooltip::element(move |_window, _cx| {
+                        #[cfg(not(target_family = "wasm"))]
+                        {
+                            TextView::markdown(info.as_str(), info.to_string(), _window, _cx)
+                        }
+                        #[cfg(target_family = "wasm")]
+                        {
+                            TextView::markdown(info.as_str(), info.to_string())
+                        }
                     })
                     .build(window, cx)
                 }
@@ -360,7 +378,14 @@ impl Update<Command> for FirefoxSessionUtility {
                 });
 
                 let mut data = host::FileInfo::new(if let Some(data) = &self.new_input_data {
-                    data.path().to_owned()
+                    #[cfg(not(target_family = "wasm"))]
+                    {
+                        data.path().to_owned()
+                    }
+                    #[cfg(target_family = "wasm")]
+                    {
+                        data.file_name().into()
+                    }
                 } else {
                     PathBuf::from(input_path.as_str())
                 });
@@ -645,7 +670,10 @@ impl FirefoxSessionUtility {
             let prompt = async move {
                 let file = prompt.await?;
                 Some(Command::SetInputPath(
+                    #[cfg(not(target_family = "wasm"))]
                     file.path().to_string_lossy().into_owned(),
+                    #[cfg(target_family = "wasm")]
+                    file.file_name(),
                     Some(file),
                 ))
             };
@@ -673,7 +701,10 @@ impl FirefoxSessionUtility {
             let prompt = host::prompt_save_file(Some(&host::NoDisplayHandle(&*window)));
             let prompt = async move {
                 Some(Command::SetSavePath(
+                    #[cfg(not(target_family = "wasm"))]
                     prompt.await?.path().to_string_lossy().into_owned(),
+                    #[cfg(target_family = "wasm")]
+                    prompt.await?.file_name(),
                 ))
             };
 
@@ -703,8 +734,15 @@ impl FirefoxSessionUtility {
             } else {
                 "No output format selected.".into()
             };
-            Tooltip::element(move |window, cx| {
-                TextView::markdown("output-format-tooltip", info.clone(), window, cx)
+            Tooltip::element(move |_window, _cx| {
+                #[cfg(not(target_family = "wasm"))]
+                {
+                    TextView::markdown("output-format-tooltip", info.clone(), _window, _cx)
+                }
+                #[cfg(target_family = "wasm")]
+                {
+                    TextView::markdown("output-format-tooltip", info.clone())
+                }
             })
             .build(window, cx)
         }
@@ -741,17 +779,19 @@ impl Render for FirefoxSessionUtility {
                             .my_2()
                             .child("Path to sessionstore file:")
                             .child(Input::new(&self.new_input).ml_2())
-                            .child(
-                                Button::new("input-wizard")
-                                    .on_click({
-                                        let view = self.input_wizard.downgrade();
-                                        move |_, window, cx| {
-                                            Wizard::open_modal(window, cx, view.clone());
-                                        }
-                                    })
-                                    .child("Wizard")
-                                    .ml_2(),
-                            )
+                            .when(cfg!(not(target_family = "wasm")), |parent| {
+                                parent.child(
+                                    Button::new("input-wizard")
+                                        .on_click({
+                                            let view = self.input_wizard.downgrade();
+                                            move |_, window, cx| {
+                                                Wizard::open_modal(window, cx, view.clone());
+                                            }
+                                        })
+                                        .child("Wizard")
+                                        .ml_2(),
+                                )
+                            })
                             .child(
                                 Button::new("input-browse")
                                     .on_click(Self::input_browse_event_listener(window, cx))
@@ -777,41 +817,46 @@ impl Render for FirefoxSessionUtility {
                     .child(Label::new("Tabs as links:").my_2())
                     .child(Input::new(&self.preview).flex_grow().mb_2().disabled(true))
                     // Output options:
-                    .child(
-                        h_flex()
-                            .my_2()
-                            .child("File path to write links to:")
-                            .child(Input::new(&self.output_path).ml_2())
+                    .when(cfg!(not(target_family = "wasm")), |parent| {
+                        parent
                             .child(
-                                Button::new("output-browse")
-                                    .on_click(Self::output_browse_event_listener(window, cx))
-                                    .child("Browse")
-                                    .ml_2(),
-                            ),
-                    )
-                    .child(
-                        h_flex()
-                            .my_2()
-                            .child(
-                                Checkbox::new("output-create-folder")
-                                    .label("Create folder if it doesn't exist")
-                                    .checked(self.create_folder)
-                                    .on_click(cx.listener(|view, checked, _, cx| {
-                                        view.create_folder = *checked;
-                                        cx.notify();
-                                    })),
+                                h_flex()
+                                    .my_2()
+                                    .child("File path to write links to:")
+                                    .child(Input::new(&self.output_path).ml_2())
+                                    .child(
+                                        Button::new("output-browse")
+                                            .on_click(Self::output_browse_event_listener(
+                                                window, cx,
+                                            ))
+                                            .child("Browse")
+                                            .ml_2(),
+                                    ),
                             )
                             .child(
-                                Checkbox::new("output-overwrite")
-                                    .ml_4()
-                                    .label("Overwrite file if it already exists")
-                                    .checked(self.overwrite)
-                                    .on_click(cx.listener(|view, checked, _, cx| {
-                                        view.overwrite = *checked;
-                                        cx.notify();
-                                    })),
-                            ),
-                    )
+                                h_flex()
+                                    .my_2()
+                                    .child(
+                                        Checkbox::new("output-create-folder")
+                                            .label("Create folder if it doesn't exist")
+                                            .checked(self.create_folder)
+                                            .on_click(cx.listener(|view, checked, _, cx| {
+                                                view.create_folder = *checked;
+                                                cx.notify();
+                                            })),
+                                    )
+                                    .child(
+                                        Checkbox::new("output-overwrite")
+                                            .ml_4()
+                                            .label("Overwrite file if it already exists")
+                                            .checked(self.overwrite)
+                                            .on_click(cx.listener(|view, checked, _, cx| {
+                                                view.overwrite = *checked;
+                                                cx.notify();
+                                            })),
+                                    ),
+                            )
+                    })
                     .child(
                         h_flex()
                             .my_2()
@@ -887,36 +932,105 @@ impl Render for FirefoxSessionUtility {
     }
 }
 
+fn on_finish_launching(cx: &mut App) {
+    // This must be called before using any GPUI Component features.
+    gpui_component::init(cx);
+
+    #[cfg(target_family = "wasm")]
+    {
+        // Safety: the web examples run single-threaded; the client is
+        // created and used exclusively on the main thread.
+        let http_client = unsafe {
+            gpui_web::FetchHttpClient::with_user_agent("gpui-component/story")
+                .expect("failed to create FetchHttpClient")
+        };
+        cx.set_http_client(std::sync::Arc::new(http_client));
+    }
+
+    cx.open_window(
+        WindowOptions {
+            #[cfg(not(target_family = "wasm"))]
+            titlebar: Some(gpui::TitlebarOptions {
+                title: Some("Firefox Session Data Utility".into()),
+                ..Default::default()
+            }),
+
+            #[cfg(not(target_family = "wasm"))]
+            window_min_size: Some(gpui::Size::new(px(800.), px(600.))),
+
+            ..Default::default()
+        },
+        |window: &mut Window, cx: &mut App| {
+            // Uncomment next line to test a specific theme instead of using the system theme:
+            // gpui_component::Theme::change(gpui_component::ThemeMode::Light, Some(window), cx);
+
+            let main_ui = cx.new(|cx: &mut Context<'_, _>| FirefoxSessionUtility::new(window, cx));
+            cx.new(|cx| Root::new(main_ui, window, cx))
+        },
+    )
+    .expect("Failed to build and open window");
+
+    cx.activate(true);
+}
+
+#[cfg(not(target_family = "wasm"))]
 pub fn start_ui() {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
     let _rt_guard = rt.enter();
 
-    Application::new()
+    gpui::Application::new()
         .with_assets(gpui_component_assets::Assets)
-        .run(|cx: &mut App| {
-            cx.new(|cx: &mut Context<'_, ()>| {
-                // This must be called before using any GPUI Component features.
-                gpui_component::init(cx);
+        .run(on_finish_launching);
+}
 
-                cx.open_window(
-                    WindowOptions {
-                        titlebar: Some(gpui::TitlebarOptions {
-                            title: Some("Firefox Session Data Utility".into()),
-                            ..Default::default()
-                        }),
-                        window_min_size: Some(Size::new(px(800.), px(600.))),
-                        ..Default::default()
-                    },
-                    |window: &mut Window, cx: &mut App| {
-                        // Uncomment next line to test a specific theme instead of using the system theme:
-                        // gpui_component::Theme::change(gpui_component::ThemeMode::Light, Some(window), cx);
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+pub fn start_ui() {
+    // Show dialog if app panics (otherwise just logs to console and silently stops working):
+    #[cfg(not(debug_assertions))] // <- easier hot reloads in debug builds
+    {
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            // Log error to console:
+            previous(info);
+            // Then open an alert window so the user notices the issue:
+            if let Some(win) = web_sys::window() {
+                let _ = win.alert_with_message(&format!(
+                    "App panicked and will now stop working:\n{info}"
+                ));
+            }
+        }));
+    }
 
-                        let main_ui = cx
-                            .new(|cx: &mut Context<'_, _>| FirefoxSessionUtility::new(window, cx));
-                        cx.new(|cx| Root::new(main_ui, window, cx))
-                    },
-                )
-                .expect("Failed to build and open window");
-            });
+    console_error_panic_hook::set_once();
+
+    // Initialize logging to browser console
+    console_log::init_with_level(log::Level::Info).expect("Failed to initialize logger");
+
+    // Also initialize tracing for WASM
+    tracing_wasm::set_as_global_default();
+
+    let document = web_sys::window()
+        .expect("No window")
+        .document()
+        .expect("No document");
+
+    gpui_platform::web_init();
+
+    gpui_platform::single_threaded_web()
+        .with_assets(gpui_component_assets::Assets::new(
+            if cfg!(debug_assertions) {
+                "http://127.0.0.1:8080/"
+            } else {
+                "https://lej77.github.io/firefox-session-ui-gpui/"
+            },
+        ))
+        .run(move |app| {
+            // Remove the loading text and spinner:
+            if let Some(loading_text) = document.get_element_by_id("loading") {
+                loading_text.remove();
+            }
+
+            on_finish_launching(app);
         });
 }

@@ -382,7 +382,6 @@ impl FileInfo {
             .file_handle
             .as_ref()
             .ok_or("no file handle for the specified path")?
-            .0
             .read()
             .await;
 
