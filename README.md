@@ -11,8 +11,10 @@ Note that this program simply makes use of the code exposed by the CLI tool at <
 
 - Download a precompiled executable from the [latest GitHub release](https://github.com/Lej77/firefox-session-ui-gpui/releases).
 - Or clone the git repository and:
-    - Build a release version locally using `cargo build --release` then run `target/release/firefox-session-ui-gpui.exe`.
-    - When developing use: `cargo run`
+  - Build a release version locally using `cargo build --release` then run `target/release/firefox-session-ui-gpui.exe`.
+  - When developing use: `cargo run`
+- Build as website using [trunk](https://trunkrs.dev/) (`cd trunk` then `trunk serve` or `trunk build --release`).
+  - You can try the current web demo at: <https://lej77.github.io/firefox-session-ui-egui/>
 
 ### `cargo install`
 
@@ -46,11 +48,11 @@ You can uninstall uisng:
 ## References
 
 - [GPUI](https://www.gpui.rs/)
-    - [GitHub](https://github.com/zed-industries/zed/tree/main/crates/gpui)
-    - [docs.rs](https://docs.rs/gpui/latest/gpui/)
+  - [GitHub](https://github.com/zed-industries/zed/tree/main/crates/gpui)
+  - [docs.rs](https://docs.rs/gpui/latest/gpui/)
 - [GPUI Component](https://longbridge.github.io/gpui-component/)
-    - [GitHub](https://github.com/longbridge/gpui-component)
-    - [docs.rs](https://docs.rs/gpui-component/latest/gpui_component/)
+  - [GitHub](https://github.com/longbridge/gpui-component)
+  - [docs.rs](https://docs.rs/gpui-component/latest/gpui_component/)
 
 ## License
 
