@@ -46,7 +46,7 @@ impl<T: 'static> MsgSender<T> {
                 let Some(view) = self.weak.upgrade() else {
                     return;
                 };
-                _ = view.update(cx, |view, cx| {
+                view.update(cx, |view, cx| {
                     T::update(view, window, cx, msg);
                 });
             });

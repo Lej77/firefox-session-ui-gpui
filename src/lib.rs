@@ -26,7 +26,7 @@ use gpui_component::{
     select::{Select, SelectItem, SelectState},
     text::TextView,
     tooltip::Tooltip,
-    v_flex, Icon, IconName, IndexPath, Root, StyledExt, WindowExt,
+    v_flex, Icon, IconName, IndexPath, Root, StyledExt, Theme, ThemeMode, WindowExt,
 };
 use std::path::PathBuf;
 #[cfg(target_family = "wasm")]
@@ -118,10 +118,10 @@ impl Wizard {
         window.open_dialog(cx, move |dialog, _window, _cx| {
             dialog
                 .my_10()
-                .title("Select Firefox Session Data")
+                .title("Select Session Data")
                 .child(
                     v_flex()
-                        .child("Firefox Profiles:")
+                        .child("Browser Profiles:")
                         .child(v_flex().child(list.clone()).h_64())
                         .child(Button::new("cancel").mt_8().label("Cancel").on_click({
                             move |_, window, cx| {
@@ -443,6 +443,15 @@ impl Update<Command> for FirefoxSessionUtility {
                                     });
                                     return;
                                 }
+                                Some(host::FileData::Chromium { .. }) => {
+                                    sender.send(match data.get_groups_from_session(true).await {
+                                        Ok(all_groups) => Command::ParsedTabGroups(all_groups),
+                                        Err(e) => Command::SetStatus(format!(
+                                            "Failed to list windows in Chromium session: {e}"
+                                        )),
+                                    });
+                                    return;
+                                }
                                 None => unreachable!("we just loaded the data"),
                             }
                             sender.send(Command::UpdateLoadedData(data.clone()));
@@ -586,15 +595,12 @@ impl FirefoxSessionUtility {
 
         let output_path = cx.new(|cx: &mut Context<'_, _>| {
             InputState::new(window, cx).default_value({
-                #[cfg(windows)]
-                {
-                    std::env::var("USERPROFILE")
-                        .map(|home| home + r"\Downloads\firefox-links")
-                        .unwrap_or_default()
-                }
-                #[cfg(not(windows))]
-                {
-                    String::new()
+                cfg_select! {
+                    any(windows, target_os = "linux") => std::env::home_dir()
+                        .and_then(|home| home.to_str().map(|s| s.to_owned()))
+                        .map(|home| home + r"/Downloads/firefox-links")
+                        .unwrap_or_default(),
+                    _ => String::new(),
                 }
             })
         });
@@ -962,7 +968,15 @@ fn on_finish_launching(cx: &mut App) {
         },
         |window: &mut Window, cx: &mut App| {
             // Uncomment next line to test a specific theme instead of using the system theme:
-            // gpui_component::Theme::change(gpui_component::ThemeMode::Light, Some(window), cx);
+            if let Some(mode) = match dark_light::detect() {
+                Ok(dark_light::Mode::Dark) => Some(ThemeMode::Dark),
+                Ok(dark_light::Mode::Light) => Some(ThemeMode::Light),
+                _ => None,
+            } {
+                Theme::change(mode, Some(window), cx);
+            } else {
+                Theme::sync_system_appearance(Some(window), cx);
+            }
 
             let main_ui = cx.new(|cx: &mut Context<'_, _>| FirefoxSessionUtility::new(window, cx));
             cx.new(|cx| Root::new(main_ui, window, cx))
