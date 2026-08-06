@@ -4,8 +4,25 @@ extern crate gpui_component_assets_git as gpui_component_assets;
 extern crate gpui_component_git as gpui_component;
 #[cfg(target_family = "wasm")]
 extern crate gpui_git as gpui;
-#[cfg(target_family = "wasm")]
-extern crate gpui_platform_git as gpui_platform;
+
+// #[cfg(target_family = "wasm")]
+// extern crate gpui_platform_git as gpui_platform;
+
+trait FlexGrowSimple {
+    fn flex_grow_simple(self) -> Self;
+}
+impl<T: gpui::Styled> FlexGrowSimple for T {
+    fn flex_grow_simple(self) -> Self {
+        #[cfg(target_family = "wasm")]
+        {
+            <Self as gpui::Styled>::flex_grow(self, 1.0)
+        }
+        #[cfg(not(target_family = "wasm"))]
+        {
+            <Self as gpui::Styled>::flex_grow(self)
+        }
+    }
+}
 
 mod elm;
 mod host;
@@ -821,7 +838,7 @@ impl Render for FirefoxSessionUtility {
                     )
                     // Preview:
                     .child(Label::new("Tabs as links:").my_2())
-                    .child(Input::new(&self.preview).flex_grow().mb_2().disabled(true))
+                    .child(Input::new(&self.preview).flex_grow_simple().mb_2().disabled(true))
                     // Output options:
                     .when(cfg!(not(target_family = "wasm")), |parent| {
                         parent
@@ -879,10 +896,10 @@ impl Render for FirefoxSessionUtility {
                                             ));
                                         }))
                                         .child("Copy links to clipboard")
-                                        .flex_grow(),
+                                        .flex_grow_simple(),
                                 ),
                             )
-                            .child(div().flex_grow())
+                            .child(div().flex_grow_simple())
                             .child(
                                 div().child(
                                     GroupBox::new()
@@ -919,7 +936,7 @@ impl Render for FirefoxSessionUtility {
                                             view.update(window, cx, Command::SaveLinksToFile);
                                         }))
                                         .child("Save links to file")
-                                        .flex_grow(),
+                                        .flex_grow_simple(),
                                 ),
                             ),
                     )
@@ -942,16 +959,6 @@ fn on_finish_launching(cx: &mut App) {
     // This must be called before using any GPUI Component features.
     gpui_component::init(cx);
 
-    #[cfg(target_family = "wasm")]
-    {
-        // Safety: the web examples run single-threaded; the client is
-        // created and used exclusively on the main thread.
-        let http_client = unsafe {
-            gpui_web::FetchHttpClient::with_user_agent("gpui-component/story")
-                .expect("failed to create FetchHttpClient")
-        };
-        cx.set_http_client(std::sync::Arc::new(http_client));
-    }
 
     cx.open_window(
         WindowOptions {
@@ -1028,6 +1035,27 @@ pub fn start_ui() {
         .expect("No window")
         .document()
         .expect("No document");
+
+    mod gpui_platform {
+        //! Vendored from <https://github.com/zed-industries/zed/blob/82878540b5410b288a2c92cb9ee5675533e4d807/crates/gpui_platform/src/gpui_platform.rs#L40-L54>
+        //! The upstream crate always enabled the "multithreaded" feature of "gpui_web" which required nightly.
+        use std::rc::Rc;
+
+        #[cfg(target_family = "wasm")]
+        pub fn single_threaded_web() -> gpui::Application {
+            let platform = Rc::new(gpui_web::WebPlatform::new(false));
+            let http_client = std::sync::Arc::new(platform.fetch_http_client());
+            gpui::Application::with_platform(platform).with_http_client(http_client)
+        }
+
+        /// Initializes panic hooks and logging for the web platform.
+        /// Call this before running the application in a wasm_bindgen entrypoint.
+        #[cfg(target_family = "wasm")]
+        pub fn web_init() {
+            console_error_panic_hook::set_once();
+            gpui_web::init_logging();
+        }
+    }
 
     gpui_platform::web_init();
 

@@ -441,12 +441,21 @@ impl FileInfo {
         }
 
         #[cfg(target_family = "wasm")]
-        let data = self
-            .file_handle
-            .as_ref()
-            .ok_or("no file handle for the specified path")?
-            .read()
-            .await;
+        let data = {
+            let data = self
+                .file_handle
+                .as_ref()
+                .ok_or("no file handle for the specified path")?
+                .read()
+                .await;
+
+            let data = Arc::from(data);
+            if self.is_compressed_file_format() {
+                FileData::Compressed(data)
+            } else {
+                FileData::Uncompressed(data)
+            }
+        };
 
         #[cfg(not(target_family = "wasm"))]
         let data = {

@@ -30,6 +30,8 @@ serde_json = { version = "1.0.116", optional = true } # Used to parse session da
 firefox_session_data = { git = "http://github.com/Lej77/firefox_session_data.git", tag = "v0.1.6", optional = true, features = ["windows-gui"] }
 raw-window-handle = "0.6.2" # Used to set parent for file prompts (freezes parent window while they are open)
 
+dark-light = "2.0.0" # Fallback when dark theme detection fails
+
 # Windows:
 [build-dependencies]
 winresource = "0.1.20" # Executable icon on Windows
@@ -41,7 +43,6 @@ gpui = "0.2.2" # GUI Core
 gpui-component = "0.5.1" # GUI Components
 gpui-component-assets = "0.5.1" # https://longbridge.github.io/gpui-component/docs/assets
 wry = { version = "0.53.3", package = "lb-wry", optional = true } # Web view
-dark-light = "2.0.0" # Fallback when dark theme detection fails
 
 tokio = { version = "1.37.0", features = ["rt-multi-thread"], optional = true } # Offload heavy tasks to thread pool
 
@@ -50,8 +51,9 @@ tokio = { version = "1.37.0", features = ["rt-multi-thread"], optional = true } 
 gpui-git = { package = "gpui", git = "https://github.com/zed-industries/zed" }
 gpui-component-git = { package = "gpui-component", git = "https://github.com/longbridge/gpui-component.git" }
 gpui-component-assets-git = { package = "gpui-component-assets", git = "https://github.com/longbridge/gpui-component.git" }
-gpui_platform_git = { package = "gpui_platform", git = "https://github.com/zed-industries/zed" }
-gpui_web = { package = "gpui_web", git = "https://github.com/zed-industries/zed" }
+# gpui_platform_git = { package = "gpui_platform", git = "https://github.com/zed-industries/zed" }
+gpui_web = { package = "gpui_web", git = "https://github.com/zed-industries/zed", default-features = false }
+
 
 console_error_panic_hook = "0.1"
 log ="0.4"
